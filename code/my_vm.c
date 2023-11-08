@@ -1,4 +1,8 @@
 #include "my_vm.h"
+// Global or static bitmap array
+#define TOTAL_PAGES (MEMSIZE / PGSIZE)
+unsigned char phys_page_bitmap[TOTAL_PAGES / 8] = {0};
+
 
 /*
 Function responsible for allocating and setting your physical memory 
@@ -8,10 +12,21 @@ void set_physical_mem() {
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
 
+    void *physical_memory = mmap(NULL, MEMSIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    if (physical_memory == MAP_FAILED) {
+        perror("mmap failed to allocate physical memory");
+        exit(EXIT_FAILURE);
+    }
     
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
-
+    unsigned long num_physical_pages = MEMSIZE / PGSIZE;
+    // Initialize physical bitmap (1 bit per page)
+    physical_bitmap = calloc(num_physical_pages, sizeof(unsigned char));
+    if (physical_bitmap == NULL) {
+        perror("Failed to allocate physical bitmap");
+        exit(EXIT_FAILURE);
+    }
 }
 
 
@@ -106,6 +121,33 @@ page_map(pde_t *pgdir, void *va, void *pa)
 void *get_next_avail(int num_pages) {
  
     //Use virtual address bitmap to find the next free page
+
+    // Assuming phys_page_bitmap is the bitmap for physical memory
+    int current_free = 0; // To count consecutive free pages
+
+    for (int i = 0; i < TOTAL_PAGES; ++i) {
+        int byte_index = i / 8;
+        int bit_index = i % 8;
+        
+        // Check if the bit for the page is not set (0 means it's free)
+        if (!(phys_page_bitmap[byte_index] & (1 << bit_index))) {
+            // Increment the count of consecutive free pages
+            current_free++;
+            
+            // If we've found enough pages, return the starting page number
+            if (current_free == num_pages) {
+                return (void *)(PGSIZE * (i - num_pages + 1));
+            }
+        } else {
+            // Reset the counter if a used page is found
+            current_free = 0;
+        }
+    }
+    
+    // If we reach here, there were not enough consecutive pages free
+    return NULL;
+
+    // TODO: write additional code to actually mark these pages as used in your bitmap.
 }
 
 

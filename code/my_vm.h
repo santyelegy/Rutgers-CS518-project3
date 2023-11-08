@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -26,15 +28,22 @@ typedef unsigned long pde_t;
 #define TLB_ENTRIES 512
 
 //Structure to represents TLB
+typedef struct {
+    unsigned long vpn;  // Virtual Page Number (VPN)
+    unsigned long pfn;  // Physical Frame Number (PFN)
+    bool valid;         // Valid bit
+} tlb_entry;
 struct tlb {
     /*Assume your TLB is a direct mapped TLB with number of entries as TLB_ENTRIES
     * Think about the size of each TLB entry that performs virtual to physical
     * address translation.
     */
-
+    tlb_entry entries[TLB_ENTRIES];
 };
 struct tlb tlb_store;
 
+void *physical_memory;
+unsigned char *physical_bitmap;
 
 void set_physical_mem();
 pte_t* translate(pde_t *pgdir, void *va);
