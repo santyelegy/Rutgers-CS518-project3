@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <string.h>
 
 //Assume the address space is 32 bits, so the max memory size is 4GB
 //Page size is 4KB
@@ -31,7 +32,8 @@ typedef unsigned long pde_t;
 typedef struct {
     unsigned long vpn;  // Virtual Page Number (VPN)
     unsigned long pfn;  // Physical Frame Number (PFN)
-    bool valid;         // Valid bit
+    unsigned char valid; // Valid bit
+    unsigned char dirty; // Dirty bit to indicate if the page has been written to
 } tlb_entry;
 struct tlb {
     /*Assume your TLB is a direct mapped TLB with number of entries as TLB_ENTRIES

@@ -34,8 +34,7 @@ void set_physical_mem() {
  * Part 2: Add a virtual to physical page translation to the TLB.
  * Feel free to extend the function arguments or return type.
  */
-int
-add_TLB(void *va, void *pa)
+int add_TLB(void *va, void *pa)
 {
 
     /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
@@ -49,14 +48,14 @@ add_TLB(void *va, void *pa)
  * Returns the physical page address.
  * Feel free to extend this function and change the return type.
  */
-pte_t *
-check_TLB(void *va) {
+pte_t * check_TLB(void *va) {
 
     /* Part 2: TLB lookup code here */
 
 
 
    /*This function should return a pte_t pointer*/
+   return NULL;
 }
 
 
@@ -64,8 +63,7 @@ check_TLB(void *va) {
  * Part 2: Print TLB miss rate.
  * Feel free to extend the function arguments or return type.
  */
-void
-print_TLB_missrate()
+void print_TLB_missrate()
 {
     double miss_rate = 0;	
 
@@ -104,8 +102,7 @@ as an argument, and sets a page table entry. This function will walk the page
 directory to see if there is an existing mapping for a virtual address. If the
 virtual address is not present, then a new entry will be added
 */
-int
-page_map(pde_t *pgdir, void *va, void *pa)
+int page_map(pde_t *pgdir, void *va, void *pa)
 {
 
     /*HINT: Similar to translate(), find the page directory (1st level)
@@ -147,7 +144,7 @@ void *get_next_avail(int num_pages) {
     // If we reach here, there were not enough consecutive pages free
     return NULL;
 
-    // TODO: write additional code to actually mark these pages as used in your bitmap.
+    // TODO: write additional code to actually mark these pages as used in your bitmap, such as setting the dirty bit??
 }
 
 
@@ -195,9 +192,34 @@ int put_value(void *va, void *val, int size) {
      * than one page. Therefore, you may have to find multiple pages using translate()
      * function.
      */
-
-
     /*return -1 if put_value failed and 0 if put is successfull*/
+
+    char *value_ptr = (char *)val;
+    char *virt_addr = (char *)va;
+    int bytes_written = 0;
+
+    while (size > 0) {
+        // Translate the virtual address to physical address
+        pte_t *pte = translate(NULL /* page directory */, virt_addr);
+        if (!pte) return -1; // Translation failed
+
+        // Calculate the offset within the page
+        unsigned long offset = (unsigned long)virt_addr % PGSIZE;
+        // Calculate how many bytes can be written in this page
+        int bytes_in_page = PGSIZE - offset;
+        int bytes_to_write = (size < bytes_in_page) ? size : bytes_in_page;
+
+        // Copy the contents
+        memcpy((void *)((char *)pte + offset), value_ptr, bytes_to_write);
+
+        // Update pointers and counters
+        size -= bytes_to_write;
+        bytes_written += bytes_to_write;
+        value_ptr += bytes_to_write;
+        virt_addr += bytes_to_write;
+    }
+
+    return (bytes_written > 0) ? 0 : -1;
 
 }
 
@@ -209,6 +231,31 @@ void get_value(void *va, void *val, int size) {
     * "val" address. Assume you can access "val" directly by derefencing them.
     */
 
+   char *value_ptr = (char *)val;
+    char *virt_addr = (char *)va;
+
+    while (size > 0) {
+        // Translate the virtual address to physical address
+        pte_t *pte = translate(NULL /* page directory */, virt_addr);
+        if (!pte) {
+            // Handle the translation failure (e.g., by throwing an error or returning)
+            // For now, we'll assume the translation cannot fail.
+        }
+
+        // Calculate the offset within the page
+        unsigned long offset = (unsigned long)virt_addr % PGSIZE;
+        // Calculate how many bytes can be read from this page
+        int bytes_in_page = PGSIZE - offset;
+        int bytes_to_read = (size < bytes_in_page) ? size : bytes_in_page;
+
+        // Copy the contents
+        memcpy(value_ptr, (void *)((char *)pte + offset), bytes_to_read);
+
+        // Update pointers and counters
+        size -= bytes_to_read;
+        value_ptr += bytes_to_read;
+        virt_addr += bytes_to_read;
+    }
 
 }
 
