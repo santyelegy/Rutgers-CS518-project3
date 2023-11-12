@@ -27,6 +27,17 @@ void set_physical_mem() {
         perror("Failed to allocate physical bitmap");
         exit(EXIT_FAILURE);
     }
+    // Initialize virtual bitmap (1 bit per page)
+    virtual_bitmap = calloc(num_physical_pages, sizeof(unsigned char));
+    if (virtual_bitmap == NULL) {
+        perror("Failed to allocate virtual bitmap");
+        exit(EXIT_FAILURE);
+    }
+    // initialize page directory in physical memory
+    //  TODO: set physical bitmap to valid at the location of page directory
+    struct pde *page_directory = get_next_avail(1);
+    // zero out the page directory
+    memset(page_directory, 0, PGSIZE);
 }
 
 
@@ -89,6 +100,31 @@ pte_t *translate(pde_t *pgdir, void *va) {
     * Part 2 HINT: Check the TLB before performing the translation. If
     * translation exists, then you can return physical address from the TLB.
     */
+    // get first PDE_INDEX_BITS bits of virtual address
+    unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
+    // get page directory entry
+    pde_t *page_directory = pgdir + index;
+    // check if page directory entry is valid (last bit is 1)
+    if (!(*page_directory & 1)) {
+        // Page directory entry is not valid, so return NULL
+        return NULL;
+    }
+    // set last bit to 0 to get page table base address
+    unsigned long page_table_base = *page_directory & ~1;
+    // get page table
+    index = (unsigned long)va << PDE_INDEX_BITS >> (ADDRES_SIZE - PTE_INDEX_BITS);
+    pte_t *page_table = (pte_t *)page_table_base + index;
+    // check if page table entry is valid
+    if (!(*page_table & 1)) {
+        // Page table entry is not valid, so return NULL
+        return NULL;
+    }
+    // get physical address
+    unsigned long physical_address = *page_table & ~1;
+    // get offset
+    unsigned long offset = (unsigned long)va << (ADDRES_SIZE - OFFSET_BITS) >> (ADDRES_SIZE - OFFSET_BITS);
+    physical_address += offset;
+    return (pte_t *)physical_address;
 
 
     //If translation not successful, then return NULL
@@ -108,8 +144,38 @@ int page_map(pde_t *pgdir, void *va, void *pa)
     /*HINT: Similar to translate(), find the page directory (1st level)
     and page table (2nd-level) indices. If no mapping exists, set the
     virtual to physical mapping */
-
-    return -1;
+    // get page directory
+    // if page directory entry is not valid, create a new page table
+    // get page table
+    // if page table entry is not valid, create a new page at pa
+    unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
+    // get page directory entry
+    pde_t *page_directory = pgdir + index;
+    // check if page directory entry is valid (last bit is 1)
+    if (!(*page_directory & 1)) {
+        // Page directory entry is not valid, so create a new page table
+        // get next available physical address
+        pte_t *page_table = get_next_avail(1);
+        // zero out the page table
+        memset(page_table, 0, PGSIZE);
+        // set page table entry to point to page table
+        *page_directory = (unsigned long)page_table | 1;
+    }
+    // set last bit to 0 to get page table base address
+    unsigned long page_table_base = *page_directory & ~1;
+    // get page table
+    index = (unsigned long)va << PDE_INDEX_BITS >> (ADDRES_SIZE - PTE_INDEX_BITS);
+    pte_t *page_table = (pte_t *)page_table_base + index;
+    // check if page table entry is valid
+    if (!(*page_table & 1)) {
+        // Page table entry is not valid, so create a new page at pa
+        // set page table entry to point to pa
+        *page_table = (unsigned long)pa | 1;
+    }else{
+        // Page table entry is valid, so return -1
+        return -1;
+    }
+    return 1;
 }
 
 
@@ -163,6 +229,14 @@ void *t_malloc(unsigned int num_bytes) {
     * free pages are available, set the bitmaps and map a new page. Note, you will 
     * have to mark which physical pages are used. 
     */
+   // initialize physical memory
+    // initialize page directory
+    // get next available virtual address
+    // for page in range(num_/bytes / PGSIZE)
+    // get next available physical address
+    // use page_map to map virtual address to physical address
+    // mark physical address as used in bitmap
+    // mark virtual address as used in bitmap
 
     return NULL;
 }
@@ -177,6 +251,11 @@ void t_free(void *va, int size) {
      *
      * Part 2: Also, remove the translation from the TLB
      */
+    // for page in range(num_bytes / PGSIZE)
+    // get page directory
+    // get page table
+    // mark page as free in physical bitmap
+    // mark page as free in virtual bitmap
     
 }
 
