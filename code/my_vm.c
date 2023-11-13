@@ -229,15 +229,26 @@ void *t_malloc(unsigned int num_bytes) {
     * free pages are available, set the bitmaps and map a new page. Note, you will 
     * have to mark which physical pages are used. 
     */
-   // initialize physical memory
-    // initialize page directory
+    // initialize physical memory
+    if (!initialized) {
+        set_physical_mem();
+        initialized = 1;
+    }
     // get next available virtual address
     // for page in range(num_/bytes / PGSIZE)
-    // get next available physical address
-    // use page_map to map virtual address to physical address
-    // mark physical address as used in bitmap
-    // mark virtual address as used in bitmap
-
+    for(int i = 0; i < num_bytes / PGSIZE; i++){
+        void *va = get_next_avail(1);
+        // FIXME: need another function for get next available physic address
+        void *pa = get_next_avail(1);
+        if (va == NULL) {
+            // No free pages available
+            return NULL;
+        }
+        page_map(pgdir, va, pa);
+        // mark page as used in physical bitmap
+        // mark page as used in virtual bitmap
+        // TODO: consider to do this step in page_map
+    }
     return NULL;
 }
 
@@ -254,9 +265,33 @@ void t_free(void *va, int size) {
     // for page in range(num_bytes / PGSIZE)
     // get page directory
     // get page table
-    // mark page as free in physical bitmap
-    // mark page as free in virtual bitmap
-    
+    void* pva = va;
+    for(int i = 0; i < size / PGSIZE; i++){
+        // get page table entry
+        // check if page table entry is valid
+        // if page table entry is valid, free the page
+
+        unsigned long index = (unsigned long)pva >> (ADDRES_SIZE - PDE_INDEX_BITS);
+        // get page directory entry
+        pde_t *page_directory = &pgdir + index;
+        // check if page directory entry is valid (last bit is 1)
+        if (!(*page_directory & 1)) {
+            // Page directory entry is not valid, so return NULL
+            return;
+        }
+        // set last bit to 0 to get page table base address
+        unsigned long page_table_base = *page_directory & ~1;
+        // get page table
+        index = (unsigned long)pva << PDE_INDEX_BITS >> (ADDRES_SIZE - PTE_INDEX_BITS);
+        pte_t *page_table = (pte_t *)page_table_base + index;
+        // set the last bit to 0 to free the page
+        *page_table = *page_table & ~1;
+        
+        // TODO: write funciton for this
+        // mark page as free in physical bitmap
+        // mark page as free in virtual bitmap
+        pva += PGSIZE;
+    }
 }
 
 
