@@ -182,11 +182,8 @@ int page_map(pde_t *pgdir, void *va, void *pa)
 /*Function that gets the next available page
 */
 void *get_next_avail(int num_pages) {
- 
-    //Use virtual address bitmap to find the next free page
-
-    // Assuming phys_page_bitmap is the bitmap for physical memory
     int current_free = 0; // To count consecutive free pages
+    int start_index = 0;  // To remember the starting index of free pages
 
     for (int i = 0; i < TOTAL_PAGES; ++i) {
         int byte_index = i / 8;
@@ -194,12 +191,20 @@ void *get_next_avail(int num_pages) {
         
         // Check if the bit for the page is not set (0 means it's free)
         if (!(phys_page_bitmap[byte_index] & (1 << bit_index))) {
-            // Increment the count of consecutive free pages
+            if (current_free == 0) {
+                start_index = i;  // Remember the start of a potential free block
+            }
             current_free++;
-            
-            // If we've found enough pages, return the starting page number
+
+            // If we've found enough pages, mark them as used and return the starting page number
             if (current_free == num_pages) {
-                return (void *)(PGSIZE * (i - num_pages + 1));
+                // Mark the pages as used in the bitmap
+                for (int j = start_index; j < start_index + num_pages; ++j) {
+                    int mark_byte_index = j / 8;
+                    int mark_bit_index = j % 8;
+                    phys_page_bitmap[mark_byte_index] |= (1 << mark_bit_index);
+                }
+                return (void *)(PGSIZE * start_index);
             }
         } else {
             // Reset the counter if a used page is found
@@ -209,9 +214,42 @@ void *get_next_avail(int num_pages) {
     
     // If we reach here, there were not enough consecutive pages free
     return NULL;
-
-    // TODO: write additional code to actually mark these pages as used in your bitmap, such as setting the dirty bit??
 }
+void *get_next_avail_virt(int num_pages) {
+    int current_free = 0; // To count consecutive free pages
+    int start_index = 0;  // To remember the starting index of free pages
+
+    for (int i = 0; i < TOTAL_PAGES; ++i) {
+        int byte_index = i / 8;
+        int bit_index = i % 8;
+        
+        // Check if the bit for the page is not set (0 means it's free)
+        if (!(virt_page_bitmap[byte_index] & (1 << bit_index))) {
+            if (current_free == 0) {
+                start_index = i;  // Remember the start of a potential free block
+            }
+            current_free++;
+
+            // If we've found enough pages, mark them as used and return the starting page number
+            if (current_free == num_pages) {
+                // Mark the pages as used in the bitmap
+                for (int j = start_index; j < start_index + num_pages; ++j) {
+                    int mark_byte_index = j / 8;
+                    int mark_bit_index = j % 8;
+                    virt_page_bitmap[mark_byte_index] |= (1 << mark_bit_index);
+                }
+                return (void *)(PGSIZE * start_index);
+            }
+        } else {
+            // Reset the counter if a used page is found
+            current_free = 0;
+        }
+    }
+    
+    // If we reach here, there were not enough consecutive pages free
+    return NULL;
+}
+
 
 
 /* Function responsible for allocating pages
@@ -411,3 +449,28 @@ void mat_mult(void *mat1, void *mat2, int size, void *answer) {
 
 
 
+void set_virt(int index, int size, int value) {
+    int start_index = (int)index;
+    for (int i = 0; i < size; i++) {
+        int byte_index = (start_index + i) / 8;
+        int bit_index = (start_index + i) % 8;
+        if (value) {
+            virt_page_bitmap[byte_index] |= (1 << bit_index);
+        } else {
+            virt_page_bitmap[byte_index] &= ~(1 << bit_index);
+        }
+    }
+}
+
+void set_phys(int index, int size, int value) {
+    int start_index = (int)index;
+    for (int i = 0; i < size; i++) {
+        int byte_index = (start_index + i) / 8;
+        int bit_index = (start_index + i) % 8;
+        if (value) {
+            phys_page_bitmap[byte_index] |= (1 << bit_index);
+        } else {
+            phys_page_bitmap[byte_index] &= ~(1 << bit_index);
+        }
+    }
+}
