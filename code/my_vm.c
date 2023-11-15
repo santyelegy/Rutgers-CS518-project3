@@ -224,7 +224,7 @@ void *get_next_avail_virt(int num_pages) {
         int bit_index = i % 8;
         
         // Check if the bit for the page is not set (0 means it's free)
-        if (!(virt_page_bitmap[byte_index] & (1 << bit_index))) {
+        if (!(virtual_bitmap[byte_index] & (1 << bit_index))) {
             if (current_free == 0) {
                 start_index = i;  // Remember the start of a potential free block
             }
@@ -236,7 +236,7 @@ void *get_next_avail_virt(int num_pages) {
                 for (int j = start_index; j < start_index + num_pages; ++j) {
                     int mark_byte_index = j / 8;
                     int mark_bit_index = j % 8;
-                    virt_page_bitmap[mark_byte_index] |= (1 << mark_bit_index);
+                    virtual_bitmap[mark_byte_index] |= (1 << mark_bit_index);
                 }
                 return (void *)(PGSIZE * start_index);
             }
@@ -286,6 +286,8 @@ void *t_malloc(unsigned int num_bytes) {
         // mark page as used in physical bitmap
         // mark page as used in virtual bitmap
         // TODO: consider to do this step in page_map
+        set_phys((unsigned long)pa / PGSIZE, 1, 1);
+        set_virt((unsigned long)va / PGSIZE, 1, 1);
     }
     return NULL;
 }
@@ -323,11 +325,13 @@ void t_free(void *va, int size) {
         index = (unsigned long)pva << PDE_INDEX_BITS >> (ADDRES_SIZE - PTE_INDEX_BITS);
         pte_t *page_table = (pte_t *)page_table_base + index;
         // set the last bit to 0 to free the page
+        void* ppa = (void *)(*page_table & ~1);
         *page_table = *page_table & ~1;
-        
         // TODO: write funciton for this
         // mark page as free in physical bitmap
         // mark page as free in virtual bitmap
+        set_phys((unsigned long)ppa / PGSIZE, 1, 0);
+        set_virt((unsigned long)pva / PGSIZE, 1, 0);
         pva += PGSIZE;
     }
 }
@@ -455,9 +459,9 @@ void set_virt(int index, int size, int value) {
         int byte_index = (start_index + i) / 8;
         int bit_index = (start_index + i) % 8;
         if (value) {
-            virt_page_bitmap[byte_index] |= (1 << bit_index);
+            virtual_bitmap[byte_index] |= (1 << bit_index);
         } else {
-            virt_page_bitmap[byte_index] &= ~(1 << bit_index);
+            virtual_bitmap[byte_index] &= ~(1 << bit_index);
         }
     }
 }

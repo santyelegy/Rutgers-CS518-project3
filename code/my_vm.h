@@ -94,5 +94,7 @@ int put_value(void *va, void *val, int size);
 void get_value(void *va, void *val, int size);
 void mat_mult(void *mat1, void *mat2, int size, void *answer);
 void print_TLB_missrate();
+void set_virt(int index, int size, int value);
+void set_phys(int index, int size, int value);
 
 #endif
