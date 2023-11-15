@@ -62,10 +62,12 @@ typedef struct
 // Structure to represents TLB
 typedef struct
 {
-    unsigned long vpn;   // Virtual Page Number (VPN)
-    unsigned long pfn;   // Physical Frame Number (PFN)
+
+    unsigned long va;   // Virtual Address
+    unsigned long pa;   // Physical Address
     unsigned char valid; // Valid bit
-    unsigned char dirty; // Dirty bit to indicate if the page has been written to
+
+    int used; // 1 for used, 0 for unused. when clock algo see 1 -> 0. 0-> clear
 } tlb_entry;
 struct tlb
 {

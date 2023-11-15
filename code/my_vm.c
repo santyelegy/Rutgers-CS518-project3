@@ -50,6 +50,8 @@ int add_TLB(void *va, void *pa)
 
     /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
 
+    // 找不到空间的情况下，跑一次clock algo，扔掉第一个0. 存clock hand
+
     return -1;
 }
 
@@ -65,7 +67,7 @@ pte_t * check_TLB(void *va) {
 
 
 
-   /*This function should return a pte_t pointer*/
+   /*This function should return a pte_t pointer (pa in tlb)*/
    return NULL;
 }
 
@@ -80,7 +82,8 @@ void print_TLB_missrate()
 
     /*Part 2 Code here to calculate and print the TLB miss rate*/
 
-
+    // call add = miss count ++
+    // call check = total count ++
 
 
     fprintf(stderr, "TLB miss rate %lf \n", miss_rate);
