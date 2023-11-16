@@ -2,7 +2,8 @@
 // Global or static bitmap array
 #define TOTAL_PAGES (MEMSIZE / PGSIZE)
 unsigned char phys_page_bitmap[TOTAL_PAGES / 8] = {0};
-
+struct tlb TLB_obj;
+int clock_hand_index=0;
 
 /*
 Function responsible for allocating and setting your physical memory 
@@ -49,9 +50,33 @@ int add_TLB(void *va, void *pa)
 {
 
     /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
-
+    for(int i = 0 ; i<TLB_ENTRIES;i++){
+        if(TLB_obj[i]->valid == 0){
+            TLB_obj[i]->valid = 1;
+            TLB_obj[i]->va = va;
+            TLB_obj[i]->pa = pa;
+            return 0;
+        }
+    }
     // 找不到空间的情况下，跑一次clock algo，扔掉第一个0. 存clock hand
-
+    while(1){
+        if(clock_hand_index == TLB_ENTRIES){
+            // reset clock hand
+            clock_hand_index = 0;
+        }
+        if(TLB_obj[clock_hand_index]->used == 1){
+            // ready to be thrown out
+            TLB_obj[clock_hand_index]->used = 0;
+        }else{
+            // Throw out + replace
+            TLB_obj[i]->valid = 1;
+            TLB_obj[i]->va = va;
+            TLB_obj[i]->pa = pa;
+            clock_hand_index++;
+            break;
+        }
+        clock_hand_index++;
+    }
     return -1;
 }
 
@@ -64,8 +89,12 @@ int add_TLB(void *va, void *pa)
 pte_t * check_TLB(void *va) {
 
     /* Part 2: TLB lookup code here */
-
-
+    
+    for(int i = 0; i<TLB_ENTRIES;i++){
+        if(va == TLB_obj[i]->va && TLB_obj[i]->valid == 1){
+            return (pte_t*)TLB_obj[i]->pa;
+        }
+    }
 
    /*This function should return a pte_t pointer (pa in tlb)*/
    return NULL;
@@ -81,6 +110,7 @@ void print_TLB_missrate()
     double miss_rate = 0;	
 
     /*Part 2 Code here to calculate and print the TLB miss rate*/
+    miss_rate = miss_count / total_count;
 
     // call add = miss count ++
     // call check = total count ++
