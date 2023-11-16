@@ -2,7 +2,6 @@
 // Global or static bitmap array
 #define TOTAL_PAGES (MEMSIZE / PGSIZE)
 unsigned char phys_page_bitmap[TOTAL_PAGES / 8] = {0};
-struct tlb TLB_obj;
 int clock_hand_index=0;
 
 /*
@@ -51,10 +50,10 @@ int add_TLB(void *va, void *pa)
 
     /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
     for(int i = 0 ; i<TLB_ENTRIES;i++){
-        if(TLB_obj[i]->valid == 0){
-            TLB_obj[i]->valid = 1;
-            TLB_obj[i]->va = va;
-            TLB_obj[i]->pa = pa;
+        if(tlb_store.entries[i].valid == 0){
+            tlb_store.entries[i].valid = 1;
+            tlb_store.entries[i].va = va;
+            tlb_store.entries[i].pa = pa;
             return 0;
         }
     }
@@ -64,14 +63,14 @@ int add_TLB(void *va, void *pa)
             // reset clock hand
             clock_hand_index = 0;
         }
-        if(TLB_obj[clock_hand_index]->used == 1){
+        if(tlb_store.entries[clock_hand_index].used == 1){
             // ready to be thrown out
-            TLB_obj[clock_hand_index]->used = 0;
+            tlb_store.entries[clock_hand_index].used = 0;
         }else{
             // Throw out + replace
-            TLB_obj[i]->valid = 1;
-            TLB_obj[i]->va = va;
-            TLB_obj[i]->pa = pa;
+            tlb_store.entries[clock_hand_index].valid = 1;
+            tlb_store.entries[clock_hand_index].va = va;
+            tlb_store.entries[clock_hand_index].pa = pa;
             clock_hand_index++;
             break;
         }
@@ -90,9 +89,11 @@ pte_t * check_TLB(void *va) {
 
     /* Part 2: TLB lookup code here */
     
-    for(int i = 0; i<TLB_ENTRIES;i++){
-        if(va == TLB_obj[i]->va && TLB_obj[i]->valid == 1){
-            return (pte_t*)TLB_obj[i]->pa;
+    unsigned long virtual_address = (unsigned long)va;
+
+    for (int i = 0; i < TLB_ENTRIES; i++) {
+        if (virtual_address == tlb_store.entries[i].va && tlb_store.entries[i].valid) {
+            return (pte_t*)(tlb_store.entries[i].pa);
         }
     }
 
