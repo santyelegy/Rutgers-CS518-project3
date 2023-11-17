@@ -77,13 +77,6 @@ struct tlb
      */
     tlb_entry entries[TLB_ENTRIES];
 };
-struct tlb tlb_store;
-struct page_directory *pgdir;
-int initialized = 0;
-
-void *physical_memory;
-unsigned char *physical_bitmap;
-unsigned char *virtual_bitmap;
 
 void set_physical_mem();
 pte_t *translate(pde_t *pgdir, void *va);
@@ -98,7 +91,7 @@ void mat_mult(void *mat1, void *mat2, int size, void *answer);
 void print_TLB_missrate();
 void set_virt(int index, int size, int value);
 void set_phys(int index, int size, int value);
-int miss_count;
-int total_count;
+void *get_next_avail(int num_pages);
+void *get_next_avail_phys(int num_pages);
 
 #endif

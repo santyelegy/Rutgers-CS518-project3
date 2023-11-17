@@ -3,6 +3,15 @@
 #define TOTAL_PAGES (MEMSIZE / PGSIZE)
 unsigned char phys_page_bitmap[TOTAL_PAGES / 8] = {0};
 int clock_hand_index=0;
+struct tlb tlb_store;
+struct page_directory *pgdir;
+int initialized = 0;
+
+void *physical_memory;
+unsigned char *physical_bitmap;
+unsigned char *virtual_bitmap;
+int miss_count;
+int total_count;
 
 /*
 Function responsible for allocating and setting your physical memory 
@@ -11,13 +20,14 @@ void set_physical_mem() {
 
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
+    printf("setting physical memory\n");
 
-    void *physical_memory = mmap(NULL, MEMSIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    physical_memory = mmap(NULL, MEMSIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (physical_memory == MAP_FAILED) {
         perror("mmap failed to allocate physical memory");
         exit(EXIT_FAILURE);
     }
-    
+    printf("physical memory: %x\n", physical_memory);
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
     unsigned long num_physical_pages = MEMSIZE / PGSIZE;
@@ -38,6 +48,8 @@ void set_physical_mem() {
     struct pde *page_directory = get_next_avail(1);
     // zero out the page directory
     memset(page_directory, 0, PGSIZE);
+    printf("page directory: %x\n", page_directory);
+    printf("finished setting physical memory\n");
 }
 
 
@@ -238,7 +250,7 @@ void *get_next_avail(int num_pages) {
                     int mark_bit_index = j % 8;
                     phys_page_bitmap[mark_byte_index] |= (1 << mark_bit_index);
                 }
-                return (void *)(PGSIZE * start_index);
+                return (void *)((unsigned long)physical_memory + PGSIZE * start_index);
             }
         } else {
             // Reset the counter if a used page is found
@@ -302,28 +314,27 @@ void *t_malloc(unsigned int num_bytes) {
     * have to mark which physical pages are used. 
     */
     // initialize physical memory
+    printf("calling t_malloc\n");
     if (!initialized) {
         set_physical_mem();
         initialized = 1;
     }
     // get next available virtual address
     // for page in range(num_/bytes / PGSIZE)
+    // Assume that num_bytes is a multiple of PGSIZE
+    void *va = get_next_avail(num_bytes / PGSIZE);
+    printf("va: %x\n", va);
+    if (va == NULL) {
+        // No free pages available
+        return NULL;
+    }
     for(int i = 0; i < num_bytes / PGSIZE; i++){
-        void *va = get_next_avail(1);
         // FIXME: need another function for get next available physic address
         void *pa = get_next_avail(1);
-        if (va == NULL) {
-            // No free pages available
-            return NULL;
-        }
-        page_map(pgdir, va, pa);
-        // mark page as used in physical bitmap
-        // mark page as used in virtual bitmap
-        // TODO: consider to do this step in page_map
-        set_phys((unsigned long)pa / PGSIZE, 1, 1);
-        set_virt((unsigned long)va / PGSIZE, 1, 1);
+        
+        page_map((pde_t *)(unsigned long)((void *)pgdir), (void *)((unsigned long)va+ i * PGSIZE), pa);
     }
-    return NULL;
+    return va;
 }
 
 /* Responsible for releasing one or more memory pages using virtual address (va)
@@ -347,7 +358,7 @@ void t_free(void *va, int size) {
 
         unsigned long index = (unsigned long)pva >> (ADDRES_SIZE - PDE_INDEX_BITS);
         // get page directory entry
-        pde_t *page_directory = &pgdir + index;
+        pde_t *page_directory = (pte_t *)((void *)pgdir) + index;
         // check if page directory entry is valid (last bit is 1)
         if (!(*page_directory & 1)) {
             // Page directory entry is not valid, so return NULL
@@ -364,7 +375,7 @@ void t_free(void *va, int size) {
         // TODO: write funciton for this
         // mark page as free in physical bitmap
         // mark page as free in virtual bitmap
-        set_phys((unsigned long)ppa / PGSIZE, 1, 0);
+        set_phys(((unsigned long)ppa - (unsigned long)physical_memory) / PGSIZE, 1, 0);
         set_virt((unsigned long)pva / PGSIZE, 1, 0);
         pva += PGSIZE;
     }
@@ -390,7 +401,7 @@ int put_value(void *va, void *val, int size) {
 
     while (size > 0) {
         // Translate the virtual address to physical address
-        pte_t *pte = translate(NULL /* page directory */, virt_addr);
+        pte_t *pte = translate((pde_t *)(unsigned long)((void *)pgdir), virt_addr);
         if (!pte) return -1; // Translation failed
 
         // Calculate the offset within the page
@@ -426,7 +437,7 @@ void get_value(void *va, void *val, int size) {
 
     while (size > 0) {
         // Translate the virtual address to physical address
-        pte_t *pte = translate(NULL /* page directory */, virt_addr);
+        pte_t *pte = translate((pde_t *)(unsigned long)((void *)pgdir) /* page directory */, virt_addr);
         if (!pte) {
             // Handle the translation failure (e.g., by throwing an error or returning)
             // For now, we'll assume the translation cannot fail.
@@ -502,13 +513,16 @@ void set_virt(int index, int size, int value) {
 
 void set_phys(int index, int size, int value) {
     int start_index = (int)index;
+    printf("start_index: %d\n", start_index);
+    printf("phys_page_bitmap value binary: %x\n", phys_page_bitmap[start_index]);
     for (int i = 0; i < size; i++) {
         int byte_index = (start_index + i) / 8;
         int bit_index = (start_index + i) % 8;
         if (value) {
-            phys_page_bitmap[byte_index] |= (1 << bit_index);
+            virtual_bitmap[byte_index] |= (1 << bit_index);
         } else {
-            phys_page_bitmap[byte_index] &= ~(1 << bit_index);
+            virtual_bitmap[byte_index] &= ~(1 << bit_index);
         }
     }
+    printf("phys_page_bitmap value binary: %x\n", phys_page_bitmap[start_index]);
 }
