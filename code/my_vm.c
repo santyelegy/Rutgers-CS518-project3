@@ -237,11 +237,12 @@ void *get_next_avail(int num_pages) {
         
         // Check if the bit for the page is not set (0 means it's free)
         if (!(phys_page_bitmap[byte_index] & (1 << bit_index))) {
+            //printf("find one free page at index %d\n", i);
             if (current_free == 0) {
                 start_index = i;  // Remember the start of a potential free block
             }
             current_free++;
-
+            // printf("current_free: %d num_pages: %d \n", current_free, num_pages);
             // If we've found enough pages, mark them as used and return the starting page number
             if (current_free == num_pages) {
                 // Mark the pages as used in the bitmap
@@ -259,6 +260,7 @@ void *get_next_avail(int num_pages) {
     }
     
     // If we reach here, there were not enough consecutive pages free
+    printf("get_next_avail failed\n");
     return NULL;
 }
 void *get_next_avail_virt(int num_pages) {
@@ -322,7 +324,11 @@ void *t_malloc(unsigned int num_bytes) {
     // get next available virtual address
     // for page in range(num_/bytes / PGSIZE)
     // Assume that num_bytes is a multiple of PGSIZE
-    void *va = get_next_avail(num_bytes / PGSIZE);
+    int page_needed = num_bytes / PGSIZE;
+    if(num_bytes % PGSIZE != 0){
+        page_needed++;
+    }
+    void *va = get_next_avail(page_needed);
     printf("va: %x\n", va);
     if (va == NULL) {
         // No free pages available
