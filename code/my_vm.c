@@ -4,7 +4,7 @@
 unsigned char phys_page_bitmap[TOTAL_PAGES / 8] = {0};
 int clock_hand_index=0;
 struct tlb tlb_store;
-struct page_directory *pgdir;
+struct pde *pgdir;
 int initialized = 0;
 
 void *physical_memory;
@@ -27,7 +27,6 @@ void set_physical_mem() {
         perror("mmap failed to allocate physical memory");
         exit(EXIT_FAILURE);
     }
-    printf("physical memory: %x\n", physical_memory);
     //HINT: Also calculate the number of physical and virtual pages and allocate
     //virtual and physical bitmaps and initialize them
     unsigned long num_physical_pages = MEMSIZE / PGSIZE;
@@ -45,10 +44,11 @@ void set_physical_mem() {
     }
     // initialize page directory in physical memory
     //  TODO: set physical bitmap to valid at the location of page directory
-    struct pde *page_directory = get_next_avail(1);
+    pgdir = get_next_avail(1);
+
     // zero out the page directory
-    memset(page_directory, 0, PGSIZE);
-    printf("page directory: %x\n", page_directory);
+    memset(pgdir, 0, PGSIZE);
+    printf("page directory: %x\n", pgdir);
     printf("finished setting physical memory\n");
 }
 
@@ -150,6 +150,8 @@ pte_t *translate(pde_t *pgdir, void *va) {
     unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
     // get page directory entry
     pde_t *page_directory = pgdir + index;
+    // printf("page directory: %x\n", page_directory);
+    // printf("page directory entry: %x\n", *page_directory);
     // check if page directory entry is valid (last bit is 1)
     if (!(*page_directory & 1)) {
         // Page directory entry is not valid, so return NULL
@@ -160,6 +162,8 @@ pte_t *translate(pde_t *pgdir, void *va) {
     // get page table
     index = (unsigned long)va << PDE_INDEX_BITS >> (ADDRES_SIZE - PTE_INDEX_BITS);
     pte_t *page_table = (pte_t *)page_table_base + index;
+    // printf("page table: %x\n", page_table);
+    // printf("page table entry: %x\n", *page_table);
     // check if page table entry is valid
     if (!(*page_table & 1)) {
         // Page table entry is not valid, so return NULL
@@ -170,6 +174,7 @@ pte_t *translate(pde_t *pgdir, void *va) {
     // get offset
     unsigned long offset = (unsigned long)va << (ADDRES_SIZE - OFFSET_BITS) >> (ADDRES_SIZE - OFFSET_BITS);
     physical_address += offset;
+    // printf("physical address: %x\n", physical_address);
     return (pte_t *)physical_address;
 
 
@@ -197,6 +202,7 @@ int page_map(pde_t *pgdir, void *va, void *pa)
     unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
     // get page directory entry
     pde_t *page_directory = pgdir + index;
+    // printf("page directory: %x\n", page_directory);
     // check if page directory entry is valid (last bit is 1)
     if (!(*page_directory & 1)) {
         // Page directory entry is not valid, so create a new page table
@@ -212,11 +218,13 @@ int page_map(pde_t *pgdir, void *va, void *pa)
     // get page table
     index = (unsigned long)va << PDE_INDEX_BITS >> (ADDRES_SIZE - PTE_INDEX_BITS);
     pte_t *page_table = (pte_t *)page_table_base + index;
+    // printf("page table: %x\n", page_table);
     // check if page table entry is valid
     if (!(*page_table & 1)) {
         // Page table entry is not valid, so create a new page at pa
         // set page table entry to point to pa
         *page_table = (unsigned long)pa | 1;
+        // printf("page table entry: %x\n", *page_table);
     }else{
         // Page table entry is valid, so return -1
         return -1;
@@ -328,17 +336,16 @@ void *t_malloc(unsigned int num_bytes) {
     if(num_bytes % PGSIZE != 0){
         page_needed++;
     }
-    void *va = get_next_avail(page_needed);
+    void *va = get_next_avail_virt(page_needed);
     printf("va: %x\n", va);
-    if (va == NULL) {
-        // No free pages available
-        return NULL;
-    }
-    for(int i = 0; i < num_bytes / PGSIZE; i++){
+    // do something when no free page avaliable
+    // note that when va is 0, if we compare va == NULL, it will be true
+    // so we do not use va == NULL to check if no free page avaliable
+    for(int i = 0; i <  page_needed; i++){
         // FIXME: need another function for get next available physic address
         void *pa = get_next_avail(1);
-        
-        page_map((pde_t *)(unsigned long)((void *)pgdir), (void *)((unsigned long)va+ i * PGSIZE), pa);
+        printf("map page at virtual address: %x, physical address: %x\n", va, pa);
+        page_map(pgdir, (void *)((unsigned long)va+ i * PGSIZE), pa);
     }
     return va;
 }
@@ -400,14 +407,15 @@ int put_value(void *va, void *val, int size) {
      * function.
      */
     /*return -1 if put_value failed and 0 if put is successfull*/
-
+    //printf("put value at virtual address: %x\n", va);
     char *value_ptr = (char *)val;
     char *virt_addr = (char *)va;
     int bytes_written = 0;
 
     while (size > 0) {
         // Translate the virtual address to physical address
-        pte_t *pte = translate((pde_t *)(unsigned long)((void *)pgdir), virt_addr);
+        pte_t *pte = translate(pgdir, virt_addr);
+        //printf("pte: %x\n", pte);
         if (!pte) return -1; // Translation failed
 
         // Calculate the offset within the page

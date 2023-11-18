@@ -29,7 +29,7 @@
 // fill inner page first to save memory
 #define PDE_INDEX_BITS ((int)log2(PGSIZE / 4))
 
-#define PTE_INDEX_BITS ADDRES_SIZE - OFFSET_BITS - PDE_INDEX_BITS
+#define PTE_INDEX_BITS (ADDRES_SIZE - OFFSET_BITS - PDE_INDEX_BITS)
 
 // in case that we need these two value at compile time to determine the size of struct
 // we are not going to calculate it using index_bits macro
