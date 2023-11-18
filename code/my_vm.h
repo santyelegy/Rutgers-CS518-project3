@@ -57,7 +57,7 @@ typedef struct
     pde_t entries[PDE_NUM];
 } page_directory;
 
-#define TLB_ENTRIES 512
+#define TLB_ENTRIES 50
 
 // Structure to represents TLB
 typedef struct

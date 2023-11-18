@@ -48,6 +48,10 @@ void set_physical_mem() {
 
     // zero out the page directory
     memset(pgdir, 0, PGSIZE);
+    // initialize tlb
+    memset(&tlb_store, 0, sizeof(tlb_store));
+    total_count = 0;
+    miss_count = 0;
     // printf("page directory: %x\n", pgdir);
     printf("finished setting physical memory\n");
 }
@@ -59,17 +63,17 @@ void set_physical_mem() {
  */
 int add_TLB(void *va, void *pa)
 {
-
+    miss_count++;
     /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
     for(int i = 0 ; i<TLB_ENTRIES;i++){
         if(tlb_store.entries[i].valid == 0){
             tlb_store.entries[i].valid = 1;
-            tlb_store.entries[i].va = va;
-            tlb_store.entries[i].pa = pa;
+            tlb_store.entries[i].va = (unsigned long)va;
+            tlb_store.entries[i].pa = (unsigned long)pa;
             return 0;
         }
     }
-    // 找不到空间的情况下，跑一次clock algo，扔掉第一个0. 存clock hand
+    // run clock algorthim
     while(1){
         if(clock_hand_index == TLB_ENTRIES){
             // reset clock hand
@@ -81,8 +85,8 @@ int add_TLB(void *va, void *pa)
         }else{
             // Throw out + replace
             tlb_store.entries[clock_hand_index].valid = 1;
-            tlb_store.entries[clock_hand_index].va = va;
-            tlb_store.entries[clock_hand_index].pa = pa;
+            tlb_store.entries[clock_hand_index].va = (unsigned long)va;
+            tlb_store.entries[clock_hand_index].pa = (unsigned long)pa;
             clock_hand_index++;
             break;
         }
@@ -100,16 +104,20 @@ int add_TLB(void *va, void *pa)
 pte_t * check_TLB(void *va) {
 
     /* Part 2: TLB lookup code here */
+    total_count++;
     
     unsigned long virtual_address = (unsigned long)va;
 
     for (int i = 0; i < TLB_ENTRIES; i++) {
         if (virtual_address == tlb_store.entries[i].va && tlb_store.entries[i].valid) {
+            // printf("physical address: %x\n", tlb_store.entries[i].pa);
+            tlb_store.entries[i].used = 1;
             return (pte_t*)(tlb_store.entries[i].pa);
         }
     }
 
    /*This function should return a pte_t pointer (pa in tlb)*/
+   // assume there won't be any pa = 0
    return NULL;
 }
 
@@ -123,7 +131,7 @@ void print_TLB_missrate()
     double miss_rate = 0;	
 
     /*Part 2 Code here to calculate and print the TLB miss rate*/
-    miss_rate = miss_count / total_count;
+    miss_rate = (double)miss_count / (double)total_count;
 
     // call add = miss count ++
     // call check = total count ++
@@ -147,6 +155,10 @@ pte_t *translate(pde_t *pgdir, void *va) {
     * translation exists, then you can return physical address from the TLB.
     */
     // get first PDE_INDEX_BITS bits of virtual address
+    pte_t *pa = check_TLB(va);
+    if(pa != NULL){
+        return pa;
+    }
     unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
     // get page directory entry
     pde_t *page_directory = pgdir + index;
@@ -175,11 +187,9 @@ pte_t *translate(pde_t *pgdir, void *va) {
     unsigned long offset = (unsigned long)va << (ADDRES_SIZE - OFFSET_BITS) >> (ADDRES_SIZE - OFFSET_BITS);
     physical_address += offset;
     // printf("physical address: %x\n", physical_address);
+    // add to tlb
+    add_TLB(va, (void *)physical_address);
     return (pte_t *)physical_address;
-
-
-    //If translation not successful, then return NULL
-    return NULL; 
 }
 
 
