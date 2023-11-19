@@ -31,12 +31,6 @@
 
 #define PTE_INDEX_BITS (ADDRES_SIZE - OFFSET_BITS - PDE_INDEX_BITS)
 
-// in case that we need these two value at compile time to determine the size of struct
-// we are not going to calculate it using index_bits macro
-#define PDE_NUM 1024
-
-#define PTE_NUM 1024
-
 // Represents a page table entry
 // 4 byte, 32 bits, store the physical address
 // offset is 12 bits, so we only need 20 bits to store the physical address, use the last bit to store the valid bit
@@ -46,16 +40,6 @@ typedef unsigned long pte_t;
 // 4 byte, 32 bits, store the starting address of page table
 // offset is 12 bits, so we only need 20 bits to store the starting address, use the last bit to store the valid bit
 typedef unsigned long pde_t;
-
-typedef struct
-{
-    pte_t entries[PTE_NUM];
-} page_table;
-
-typedef struct
-{
-    pde_t entries[PDE_NUM];
-} page_directory;
 
 #define TLB_ENTRIES 50
 
@@ -92,6 +76,6 @@ void print_TLB_missrate();
 void set_virt(int index, int size, int value);
 void set_phys(int index, int size, int value);
 void *get_next_avail(int num_pages);
-void *get_next_avail_phys(int num_pages);
+void *get_next_avail_virt(int num_pages);
 
 #endif
