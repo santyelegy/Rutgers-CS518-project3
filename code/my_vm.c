@@ -12,6 +12,8 @@ unsigned char *physical_bitmap;
 unsigned char *virtual_bitmap;
 int miss_count;
 int total_count;
+pthread_mutex_t tlb_lock;
+pthread_mutex_t pgdir_lock;
 
 /*
 Function responsible for allocating and setting your physical memory 
@@ -64,12 +66,14 @@ void set_physical_mem() {
 int add_TLB(void *va, void *pa)
 {
     miss_count++;
+    pthread_mutex_lock(&tlb_lock);
     /*Part 2 HINT: Add a virtual to physical page translation to the TLB */
     for(int i = 0 ; i<TLB_ENTRIES;i++){
         if(tlb_store.entries[i].valid == 0){
             tlb_store.entries[i].valid = 1;
             tlb_store.entries[i].va = (unsigned long)va;
             tlb_store.entries[i].pa = (unsigned long)pa;
+            pthread_mutex_unlock(&tlb_lock);
             return 0;
         }
     }
@@ -92,6 +96,7 @@ int add_TLB(void *va, void *pa)
         }
         clock_hand_index++;
     }
+    pthread_mutex_unlock(&tlb_lock);
     return -1;
 }
 
@@ -105,16 +110,18 @@ pte_t * check_TLB(void *va) {
 
     /* Part 2: TLB lookup code here */
     total_count++;
-    
+    pthread_mutex_lock(&tlb_lock);
     unsigned long virtual_address = (unsigned long)va;
 
     for (int i = 0; i < TLB_ENTRIES; i++) {
         if (virtual_address == tlb_store.entries[i].va && tlb_store.entries[i].valid) {
             // printf("physical address: %x\n", tlb_store.entries[i].pa);
             tlb_store.entries[i].used = 1;
+            pthread_mutex_unlock(&tlb_lock);
             return (pte_t*)(tlb_store.entries[i].pa);
         }
     }
+    pthread_mutex_unlock(&tlb_lock);
 
    /*This function should return a pte_t pointer (pa in tlb)*/
    // assume there won't be any pa = 0
@@ -159,6 +166,7 @@ pte_t *translate(pde_t *pgdir, void *va) {
     if(pa != NULL){
         return pa;
     }
+    pthread_mutex_lock(&pgdir_lock);
     unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
     // get page directory entry
     pde_t *page_directory = pgdir + index;
@@ -167,6 +175,7 @@ pte_t *translate(pde_t *pgdir, void *va) {
     // check if page directory entry is valid (last bit is 1)
     if (!(*page_directory & 1)) {
         // Page directory entry is not valid, so return NULL
+        pthread_mutex_unlock(&pgdir_lock);
         return NULL;
     }
     // set last bit to 0 to get page table base address
@@ -179,6 +188,7 @@ pte_t *translate(pde_t *pgdir, void *va) {
     // check if page table entry is valid
     if (!(*page_table & 1)) {
         // Page table entry is not valid, so return NULL
+        pthread_mutex_unlock(&pgdir_lock);
         return NULL;
     }
     // get physical address
@@ -188,6 +198,7 @@ pte_t *translate(pde_t *pgdir, void *va) {
     physical_address += offset;
     // printf("physical address: %x\n", physical_address);
     // add to tlb
+    pthread_mutex_unlock(&pgdir_lock);
     add_TLB(va, (void *)physical_address);
     return (pte_t *)physical_address;
 }
@@ -335,6 +346,7 @@ void *t_malloc(unsigned int num_bytes) {
     */
     // initialize physical memory
     printf("calling t_malloc\n");
+    pthread_mutex_lock(&pgdir_lock);
     if (!initialized) {
         set_physical_mem();
         initialized = 1;
@@ -357,6 +369,7 @@ void *t_malloc(unsigned int num_bytes) {
         // printf("map page at virtual address: %x, physical address: %x\n", va, pa);
         page_map(pgdir, (void *)((unsigned long)va+ i * PGSIZE), pa);
     }
+    pthread_mutex_unlock(&pgdir_lock);
     return va;
 }
 
