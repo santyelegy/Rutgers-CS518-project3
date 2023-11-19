@@ -118,7 +118,7 @@ pte_t * check_TLB(void *va) {
             // printf("physical address: %x\n", tlb_store.entries[i].pa);
             tlb_store.entries[i].used = 1;
             pthread_mutex_unlock(&tlb_lock);
-            return (pte_t*)(tlb_store.entries[i].pa);
+            return (pte_t*)(tlb_store.entries[i].pa+(va&OFFSET_MASK));
         }
     }
     pthread_mutex_unlock(&tlb_lock);
