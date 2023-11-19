@@ -71,8 +71,8 @@ int add_TLB(void *va, void *pa)
     for(int i = 0 ; i<TLB_ENTRIES;i++){
         if(tlb_store.entries[i].valid == 0){
             tlb_store.entries[i].valid = 1;
-            tlb_store.entries[i].va = (unsigned long)va;
-            tlb_store.entries[i].pa = (unsigned long)pa;
+            tlb_store.entries[i].va = (unsigned long)va & ~OFFSET_MASK;
+            tlb_store.entries[i].pa = (unsigned long)pa & ~OFFSET_MASK;
             pthread_mutex_unlock(&tlb_lock);
             return 0;
         }
@@ -118,7 +118,7 @@ pte_t * check_TLB(void *va) {
             // printf("physical address: %x\n", tlb_store.entries[i].pa);
             tlb_store.entries[i].used = 1;
             pthread_mutex_unlock(&tlb_lock);
-            return (pte_t*)(tlb_store.entries[i].pa);
+            return (pte_t*)(tlb_store.entries[i].pa+(va&OFFSET_MASK));
         }
     }
     pthread_mutex_unlock(&tlb_lock);

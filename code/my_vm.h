@@ -25,6 +25,7 @@
 #define ADDRES_SIZE 32
 
 #define OFFSET_BITS ((int)log2(PGSIZE))
+#define OFFSET_MASK ((1UL << OFFSET_BITS) - 1)
 
 // fill inner page first to save memory
 #define PDE_INDEX_BITS ((int)log2(PGSIZE / 4))
