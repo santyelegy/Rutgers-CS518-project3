@@ -90,8 +90,8 @@ int add_TLB(void *va, void *pa)
         }else{
             // Throw out + replace
             tlb_store.entries[clock_hand_index].valid = 1;
-            tlb_store.entries[clock_hand_index].va = (unsigned long)va;
-            tlb_store.entries[clock_hand_index].pa = (unsigned long)pa;
+            tlb_store.entries[clock_hand_index].va = (unsigned long)va & ~OFFSET_MASK;
+            tlb_store.entries[clock_hand_index].pa = (unsigned long)pa & ~OFFSET_MASK;
             clock_hand_index++;
             break;
         }
@@ -115,7 +115,7 @@ pte_t * check_TLB(void *va) {
     unsigned long virtual_address = (unsigned long)va;
 
     for (int i = 0; i < TLB_ENTRIES; i++) {
-        if (virtual_address == tlb_store.entries[i].va && tlb_store.entries[i].valid) {
+        if (((unsigned long)virtual_address& ~OFFSET_MASK) == tlb_store.entries[i].va && tlb_store.entries[i].valid) {
             // printf("physical address: %x\n", tlb_store.entries[i].pa);
             tlb_store.entries[i].used = 1;
             pthread_mutex_unlock(&tlb_lock);
@@ -377,7 +377,7 @@ void *t_malloc(unsigned int num_bytes) {
 /* Responsible for releasing one or more memory pages using virtual address (va)
 */
 void t_free(void *va, int size) {
-    pthread_mutex_lock(&free_lock);
+    pthread_mutex_lock(&pgdir_lock);
     /* Part 1: Free the page table entries starting from this virtual address
      * (va). Also mark the pages free in the bitmap. Perform free only if the 
      * memory from "va" to va+size is valid.
@@ -420,7 +420,7 @@ void t_free(void *va, int size) {
         set_virt((unsigned long)pva / PGSIZE, 1, 0);
         pva += PGSIZE;
     }
-    pthread_mutex_unlock(&free_lock);
+    pthread_mutex_unlock(&pgdir_lock);
 }
 
 
