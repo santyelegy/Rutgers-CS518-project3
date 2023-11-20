@@ -48,6 +48,8 @@ void set_physical_mem() {
     // initialize page directory in physical memory
     //  TODO: set physical bitmap to valid at the location of page directory
     pgdir = get_next_avail(1);
+    // disable virtual address 0
+    set_virt(0, 1, 1);
 
     // zero out the page directory
     memset(pgdir, 0, PGSIZE);
@@ -166,6 +168,10 @@ pte_t *translate(pde_t *pgdir, void *va) {
     pte_t *pa = check_TLB(va);
     if(pa != NULL){
         return pa;
+    }
+    // disable virtual address 0
+    if((unsigned long)va & OFFSET_MASK == 0){
+        return NULL;
     }
     pthread_mutex_lock(&pgdir_lock);
     unsigned long index = (unsigned long)va >> (ADDRES_SIZE - PDE_INDEX_BITS);
@@ -346,7 +352,7 @@ void *t_malloc(unsigned int num_bytes) {
     * have to mark which physical pages are used. 
     */
     // initialize physical memory
-    printf("calling t_malloc\n");
+    // printf("calling t_malloc\n");
     pthread_mutex_lock(&pgdir_lock);
     if (!initialized) {
         set_physical_mem();
@@ -391,6 +397,10 @@ void t_free(void *va, int size) {
     int page_needed = size / PGSIZE;
     if(size % PGSIZE != 0){
         page_needed++;
+    }
+    // disable virtual address 0
+    if((unsigned long)va & OFFSET_MASK == 0){
+        return NULL;
     }
     for(int i = 0; i < page_needed; i++){
         // get page table entry
