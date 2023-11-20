@@ -368,8 +368,9 @@ void *t_malloc(unsigned int num_bytes) {
     void *va = get_next_avail_virt(page_needed);
     // printf("va: %x\n", va);
     // do something when no free page avaliable
-    // note that when va is 0, if we compare va == NULL, it will be true
-    // so we do not use va == NULL to check if no free page avaliable
+    if(va == NULL){
+        return NULL;
+    }
     for(int i = 0; i <  page_needed; i++){
         // FIXME: need another function for get next available physic address
         void *pa = get_next_avail(1);
@@ -400,7 +401,7 @@ void t_free(void *va, int size) {
     }
     // disable virtual address 0
     if((unsigned long)va & OFFSET_MASK == 0){
-        return NULL;
+        return;
     }
     for(int i = 0; i < page_needed; i++){
         // get page table entry
