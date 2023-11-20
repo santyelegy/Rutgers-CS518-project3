@@ -400,7 +400,7 @@ void t_free(void *va, int size) {
     }
     // disable virtual address 0
     if((unsigned long)va & OFFSET_MASK == 0){
-        return NULL;
+        return;
     }
     for(int i = 0; i < page_needed; i++){
         // get page table entry
