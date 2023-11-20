@@ -14,6 +14,7 @@ int miss_count;
 int total_count;
 pthread_mutex_t tlb_lock;
 pthread_mutex_t pgdir_lock;
+pthread_mutex_t free_lock;
 
 /*
 Function responsible for allocating and setting your physical memory 
@@ -376,7 +377,7 @@ void *t_malloc(unsigned int num_bytes) {
 /* Responsible for releasing one or more memory pages using virtual address (va)
 */
 void t_free(void *va, int size) {
-
+    pthread_mutex_lock(&free_lock);
     /* Part 1: Free the page table entries starting from this virtual address
      * (va). Also mark the pages free in the bitmap. Perform free only if the 
      * memory from "va" to va+size is valid.
@@ -419,6 +420,7 @@ void t_free(void *va, int size) {
         set_virt((unsigned long)pva / PGSIZE, 1, 0);
         pva += PGSIZE;
     }
+    pthread_mutex_unlock(&free_lock);
 }
 
 
