@@ -67,8 +67,6 @@ struct tlb
 void set_physical_mem();
 pte_t *translate(pde_t *pgdir, void *va);
 int page_map(pde_t *pgdir, void *va, void *pa);
-bool check_in_tlb(void *va);
-void put_in_tlb(void *va, void *pa);
 void *t_malloc(unsigned int num_bytes);
 void t_free(void *va, int size);
 int put_value(void *va, void *val, int size);

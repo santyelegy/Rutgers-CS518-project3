@@ -23,7 +23,7 @@ void set_physical_mem() {
 
     //Allocate physical memory using mmap or malloc; this is the total size of
     //your memory you are simulating
-    printf("setting physical memory\n");
+    // printf("setting physical memory\n");
 
     physical_memory = mmap(NULL, MEMSIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (physical_memory == MAP_FAILED) {
@@ -58,7 +58,7 @@ void set_physical_mem() {
     total_count = 0;
     miss_count = 0;
     // printf("page directory: %x\n", pgdir);
-    printf("finished setting physical memory\n");
+    // printf("finished setting physical memory\n");
 }
 
 
@@ -100,7 +100,7 @@ int add_TLB(void *va, void *pa)
         clock_hand_index++;
     }
     pthread_mutex_unlock(&tlb_lock);
-    return -1;
+    return 0;
 }
 
 
@@ -121,7 +121,8 @@ pte_t * check_TLB(void *va) {
             // printf("physical address: %x\n", tlb_store.entries[i].pa);
             tlb_store.entries[i].used = 1;
             pthread_mutex_unlock(&tlb_lock);
-            return (pte_t*)((uintptr_t)(tlb_store.entries[i].pa) + ((uintptr_t)va & OFFSET_MASK));
+            // printf("virtual address: %x, physical address: %x\n", (unsigned long)va, (pte_t*)((uintptr_t)(tlb_store.entries[i].pa) + ((uintptr_t)va & OFFSET_MASK)));
+            return (pte_t*)((unsigned long)(tlb_store.entries[i].pa) + ((unsigned long)va & OFFSET_MASK));
         }
     }
     pthread_mutex_unlock(&tlb_lock);
